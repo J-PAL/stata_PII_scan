@@ -19,7 +19,7 @@ set maxvar 120000
 if c(username)=="mbc96_TH" {
 	sysdir set PLUS "U:\Documents\Stata_personal\Downloaded"
 	sysdir set PERSONAL "U:\Documents\Stata_personal\Personal"
-	cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.csv
+	cd "U:\Documents" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.csv
 	global directory_to_scan "U:\Documents\TEST_DIR" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN
 }
 
@@ -171,6 +171,7 @@ program pii_scan_strings
 			if `r(max)'>3 {
 				local strings_to_output "`strings_to_output' `var'"
 			}
+			drop `temp1'
 		}
 		
 		*** Search through the rest of the variables and see if there are any of the PII search words in the variable names or labels:
