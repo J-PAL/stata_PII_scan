@@ -10,8 +10,7 @@ Date Last Modified: February 12, 2018
 Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
-
-
+version 15.1
 clear all
 set more off 
 set maxvar 120000
@@ -19,6 +18,13 @@ set maxvar 120000
 if c(username)=="mbc96_TH" {
 	sysdir set PLUS "U:\Documents\Stata_personal\Downloaded"
 	sysdir set PERSONAL "U:\Documents\Stata_personal\Personal"
+	*Clearing out temporary datasets:
+	cd C:\Users\mbc96_TH\AppData\Local\Temp\130
+	local tempfilelist : dir . files "*.dta"
+	foreach f of local tempfilelist {
+		erase "`f'"
+	}
+	
 	cd "U:\Documents" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.csv
 	global directory_to_scan "U:\Documents\TEST_DIR" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN
 }
@@ -105,7 +111,7 @@ program pii_scan_strings
 	qui count
 	forvalues i=1/`r(N)' {
 		display "------------------------------------------------------------------------------------------"
-		display "						Searching `search_directory'/`file_`i''"
+		display "			Searching `search_directory'/`file_`i''"
 		display "------------------------------------------------------------------------------------------"
 		use "`file_`i''", clear
 		qui count 
