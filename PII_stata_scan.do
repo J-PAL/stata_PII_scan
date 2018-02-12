@@ -1,14 +1,14 @@
-/************************************************************************************************************************************************************
-Description: This file will scan all .dta files within a directory and all of its subdirectories for potential PII. Potential PII includes variables with 
-names or labels containing any of the strings in global search_string. The program decodes all encoded numeric variables (i.e. those with value labels or those created 
-using the command "encode") to create string variables, which are searched along with all original string variables for variables with string lengths greater than 3. 
-Flagged variables are saved to pii_stata_output.csv. 
+/*********************************************************************************************************************************************
+Description: This file will scan all .dta files within a directory and all of its subdirectories for potential PII. Potential PII includes 
+variables with names or labels containing any of the strings in global search_string. The program decodes all encoded numeric variables (i.e. 
+those with value labels or those created using the command "encode") to create string variables, which are searched along with all original 
+string variables for variables with string lengths greater than 3. Flagged variables are saved to pii_stata_output.csv. 
 
 Inputs: Path to top directory.
 Outputs: pii_stata_output.csv (saved to current working directory)
 Date Last Modified: February 12, 2018
 Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
-************************************************************************************************************************************************************/
+**********************************************************************************************************************************************/
 
 
 
@@ -110,7 +110,7 @@ program pii_scan_strings
 		use "`file_`i''", clear
 		qui count 
 		local N = r(N) // USED WHEN OUTPUTING TO CSV 
-		*Initialize locals:
+		***Initialize locals:
 		local decoded_vars_original
 		local decoded_vars_renamed
 		local vars_output_csv
@@ -152,7 +152,7 @@ program pii_scan_strings
 			}
 		}
 		
-		*Get list of all string variables (this will include original string variables and the decoded variables) 
+		***Get list of all string variables (this will include original string variables and the decoded variables) 
 		foreach var of varlist * {
 			capture confirm string var `var'
 			if _rc==0 {
@@ -163,7 +163,7 @@ program pii_scan_strings
 			}
 		}
 
-		* Save the list of string variables that have lengths greater than 3:
+		***Save the list of string variables that have lengths greater than 3:
 		foreach var of local string_vars {
 			tempvar temp1
 			qui gen `temp1' = length(`var') // string length 
@@ -174,8 +174,8 @@ program pii_scan_strings
 			drop `temp1'
 		}
 		
-		*** Search through the rest of the variables and see if there are any of the PII search words in the variable names or labels:
-		*Only look through variables that have been assigned to be output to CSV sheet already
+		***Search through the rest of the variables and see if there are any of the PII search words in the variable names or labels:
+		***Only look through variables that have been assigned to be output to CSV sheet already
 		local search_list : list all_vars - strings_to_output 
 		local flagged_vars "`strings_to_output'"
 		foreach var of local search_list {
@@ -184,9 +184,9 @@ program pii_scan_strings
 			local var_name = lower("`var'")
 			foreach search_string of global search_strings {
 				local search_string = lower(`"`search_string'"')
-				*Look for string in variable name:
+				***Look for string in variable name:
 				local name_pos = strpos("`var_name'","`search_string'")
-				*Look for string in variable label: 
+				***Look for string in variable label: 
 				local label_pos = strpos("`var_label'","`search_string'")
 				if `name_pos'!=0 | `label_pos' !=0 {
 					display "SEARCH TERM `search_string' FOUND IN VARIABLE `var_name' (label = `var_label')"
@@ -195,7 +195,7 @@ program pii_scan_strings
 			}
 		}
 		
-		*** Output the flagged variables to csv file: 
+		***Output the flagged variables to csv file: 
 		foreach var of local flagged_vars {
 			tempvar obsnm_temp temp2 temp3 temp4 temp5
 			qui egen `temp2' = group(`var') // group var
@@ -203,24 +203,24 @@ program pii_scan_strings
 			qui egen `temp4' = tag(`temp2')
 			qui gen `temp5' = `temp4'*`temp2' // tag*group = 1 for first obs in group 1, 0 for second obs in group 1, 2 for first obs in group 2, etc
 
-			*First column=path
+			***First column=path
 			qui putexcel A`++row' = "`file_`i''"
-			*Second column=variable nam
+			***Second column=variable nam
 			qui putexcel B`row' = "`var'"
-			*Third column=label
+			***Third column=label
 			local lab: variable label `var'
 			qui putexcel C`row' = "`lab'"
-			*Fourth column=most frequent value  -- mode = `temp3' - value where tag*group (`temp5') = mode
+			***Fourth column=most frequent value  -- mode = `temp3' - value where tag*group (`temp5') = mode
 			qui gen `obsnm_temp'=_n
 			qui sum `obsnm_temp' if `temp3'==`temp5'
 			local most_freq_value = `var'[`r(mean)']
 			qui putexcel D`row' = "`most_freq_value'"
-			*Fifth column = ratio of num diff values/num obs
+			***Fifth column = ratio of num diff values/num obs
 			qui sum `temp2'
-			*NOTE: `N' comes from "qui count" when file is first opened
+			***NOTE: `N' comes from "qui count" when file is first opened
 			qui putexcel E`row' = "`r(max)'/`N'"
-			*Sixth column = samp1 (nonmissing) --> tenth column = samp5 (nonmissing):
-			*First sort by tag*group:
+			***Sixth column = samp1 (nonmissing) --> tenth column = samp5 (nonmissing):
+			***First sort by tag*group:
 			gsort - `temp5'
 			forvalues m=1/5 {
 				local samp`m' = `var'[`m']
