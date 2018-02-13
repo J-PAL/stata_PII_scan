@@ -2,11 +2,11 @@
 Description: This file will scan all .dta files within a directory and all of its subdirectories for potential PII. Potential PII includes 
 variables with names or labels containing any of the strings in global search_string. The program decodes all encoded numeric variables (i.e. 
 those with value labels or those created using the command "encode") to create string variables, which are searched along with all original 
-string variables for variables with string lengths greater than 3. Flagged variables are saved to pii_stata_output.csv. 
+string variables for variables with string lengths greater than 3. Flagged variables are saved to pii_stata_output.xlsx. 
 
 Inputs: Path to top directory.
-Outputs: pii_stata_output.csv (saved to current working directory)
-Date Last Modified: February 12, 2018
+Outputs: pii_stata_output.xlsx (saved to current working directory)
+Date Last Modified: February 13, 2018
 Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
@@ -25,7 +25,7 @@ if c(username)=="mbc96_TH" {
 		erase "`f'"
 	}
 	
-	cd "U:\Documents" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.csv
+	cd "U:\Documents" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.xlsx
 	global directory_to_scan "U:\Documents\TEST_DIR" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN
 }
 
@@ -49,6 +49,8 @@ global search_strings
 	country
 	degree
 	district
+	dob
+	daughter
 	email
 	father
 	fax
@@ -72,12 +74,14 @@ global search_strings
 	second
 	sex
 	social
+	son
 	street
 	subcountry
 	territory
 	url
 	village
 	wife
+	zip
 ;
 #delimit cr
 *****************************************************************************************************
@@ -98,7 +102,7 @@ program pii_scan_strings
 		local file_`i' = file_path[`i']
 	}
 
-	qui putexcel set pii_stata_output.csv, replace
+	qui putexcel set pii_stata_output.xlsx, replace
 	local i=0
 	foreach col in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z {
 		local col`++i' "`col'"
