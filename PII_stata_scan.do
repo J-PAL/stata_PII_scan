@@ -2,11 +2,11 @@
 Description: This file will scan all .dta files within a directory and all of its subdirectories for potential PII. Potential PII includes 
 variables with names or labels containing any of the strings in global search_string. The program decodes all encoded numeric variables (i.e. 
 those with value labels or those created using the command "encode") to create string variables, which are searched along with all original 
-string variables for variables with string lengths greater than 3. Flagged variables are saved to pii_stata_output.xlsx. 
+string variables for variables with string lengths greater than 3 (or user-defined length). Flagged variables are saved to pii_stata_output.xlsx. 
 
 Inputs: Path to top directory.
 Outputs: pii_stata_output.xlsx (saved to current working directory)
-Date Last Modified: February 13, 2018
+Date Last Modified: February 20, 2018
 Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
@@ -25,8 +25,8 @@ if c(username)=="mbc96_TH" {
 		erase "`f'"
 	}
 	
-	cd "U:\Documents" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.xlsx
-	global directory_to_scan "U:\Documents\TEST_DIR" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN
+	cd "U:/Documents/JPAL/Haryana_Raw_Data_for_PII_Scan" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.xlsx
+	global directory_to_scan "U:/Documents/JPAL/Haryana_Raw_Data_for_PII_Scan" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN
 }
 
 ***Command "filelist" required:
@@ -59,7 +59,7 @@ global search_strings
 	house
 	husband
 	lat
-	loc
+	loc 
 	location
 	lon
 	minute
@@ -88,7 +88,42 @@ global search_strings
 
 capture program drop pii_scan_strings
 program pii_scan_strings
-	syntax anything(name=search_directory id="path of directory to search")
+	syntax anything(name=search_directory id="path of directory to search")[, remove_search_list(string) add_search_list(string) ignore_varname(string) string_length(integer 3)]
+	/*
+	EXPLANATION OF INPUTS:
+		search_directory = path of directory to search 
+		remove_search_list = list of strings to remove from the search list (e.g. if you don't want to search for string with "zip" or "wife" in the name or label, use 
+							 option remove_search_list(zip wife)
+		add_search_list = list of strings to add to the search list (e.g. if you also want to search for "person" in name/label, use option add_search_list(person)
+		ignore_varname = A list of strings such that if there are any variables flagged with any of these strings in the VARIABLE NAME, they will NOT be output to the excel file 
+				(e.g. if you don't want any variables with the word "materials" to be output to pii_stata_output.xlsx, use option "ignore(materials)"). 
+				NOTE: This does not ignore the word if it is only found in the variable label.
+		string_length = the cutoff length for the strings you want to be flagged. The default is 3 (i.e. strings with lengths greater than 3 will be output to excel file)
+	*/
+	
+	*make list of user defined search strings to ignore lowercase:
+	local ignore_strings
+	foreach search_string of local remove_search_list {
+		local string_lower = lower("`search_string'")
+		local ignore_strings "`ignore_strings' `string_lower'"
+	}
+	*make list of user defined search strings to add lowercase:
+	local add_strings
+	foreach search_string of local add_search_list {
+		local string_lower = lower("`search_string'")
+		local add_strings "`add_strings' `string_lower'"
+	}
+	
+	*Remove strings user defined from search list:
+	global final_search_list : list global(search_strings) - ignore_strings
+	
+	*Add strings user defined to search list:
+	global final_search_list : list global(final_search_list) | add_strings
+	*Make sure list only contains unique values: 
+	global final_search_list : list uniq global(final_search_list)
+	
+	display "LIST OF SEARCH STRINGS TO SEARCH THROUGH:"
+	display "$final_search_list"
 	
 	tempfile file_list 
 	filelist, directory(`search_directory') pattern("*.dta")
@@ -119,7 +154,7 @@ program pii_scan_strings
 		display "------------------------------------------------------------------------------------------"
 		use "`file_`i''", clear
 		qui count 
-		local N = r(N) // USED WHEN OUTPUTING TO CSV 
+		local N = r(N) // USED WHEN OUTPUTING TO EXCEL
 		***Initialize locals:
 		local decoded_vars_original
 		local decoded_vars_renamed
@@ -173,12 +208,12 @@ program pii_scan_strings
 			}
 		}
 
-		***Save the list of string variables that have lengths greater than 3:
+		***Save the list of string variables that have lengths greater than 3 (or user defined value):
 		foreach var of local string_vars {
 			tempvar temp1
 			qui gen `temp1' = length(`var') // string length 
 			qui sum `temp1'
-			if `r(max)'>3 {
+			if `r(max)'>`string_length' {
 				local strings_to_output "`strings_to_output' `var'"
 			}
 			drop `temp1'
@@ -192,19 +227,41 @@ program pii_scan_strings
 			local lab: variable label `var'
 			local var_label = lower("`lab'")
 			local var_name = lower("`var'")
-			foreach search_string of global search_strings {
+			foreach search_string of global final_search_list {
 				local search_string = lower(`"`search_string'"')
 				***Look for string in variable name:
 				local name_pos = strpos("`var_name'","`search_string'")
 				***Look for string in variable label: 
 				local label_pos = strpos("`var_label'","`search_string'")
 				if `name_pos'!=0 | `label_pos' !=0 {
-					display "SEARCH TERM `search_string' FOUND IN VARIABLE `var_name' (label = `var_label')"
-					local flagged_vars "`flagged_vars' `var'"
+					local add_to_flagged=1
+					*Don't flag the variable if the variable name has any of the strings listed by the user in ignore_varname option:
+					foreach ignore_string of local ignore_varname {
+						local lower_ignore_string = lower("`ignore_string'")
+						local ignore_name_pos = strpos("`var_name'","`lower_ignore_string'")
+						if `ignore_name_pos'!=0 {
+							local add_to_flagged=0
+						}
+					}
+					if `add_to_flagged'==1 {
+						display "SEARCH TERM `search_string' FOUND IN VARIABLE `var_name' (label = `var_label')"
+						local flagged_vars "`flagged_vars' `var'"
+					}
 				}
 			}
 		}
 		
+		***Make sure list of flagged variables does not contain repeated variables:
+		local flagged_vars : list uniq flagged_vars
+		
+		***Dont output variable to list if all observations are missing:
+		foreach var of local flagged_vars {
+			capture qui assert mi(`var')
+			if !_rc {
+				local flagged_vars : list flagged_vars - var
+			}
+		}
+				
 		***Output the flagged variables to csv file: 
 		foreach var of local flagged_vars {
 			tempvar obsnm_temp temp2 temp3 temp4 temp5
@@ -245,4 +302,7 @@ program pii_scan_strings
 	}
 	putexcel clear
 end
-pii_scan_strings ${directory_to_scan}
+
+pii_scan_strings ${directory_to_scan}, remove_search_list(lon lat second degree minute district) ignore_varname(material)
+
+
