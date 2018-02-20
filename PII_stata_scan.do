@@ -220,7 +220,7 @@ program pii_scan_strings
 		}
 		
 		***Search through the rest of the variables and see if there are any of the PII search words in the variable names or labels:
-		***Only look through variables that have been assigned to be output to CSV sheet already
+		***Only look through variables that havent been assigned to be output to CSV sheet already
 		local search_list : list all_vars - strings_to_output 
 		local flagged_vars "`strings_to_output'"
 		foreach var of local search_list {
@@ -244,7 +244,7 @@ program pii_scan_strings
 						}
 					}
 					if `add_to_flagged'==1 {
-						display "SEARCH TERM `search_string' FOUND IN VARIABLE `var_name' (label = `var_label')"
+						display "search term `search_string' found in `var_name' (label = `var_label')"
 						local flagged_vars "`flagged_vars' `var'"
 					}
 				}
@@ -255,9 +255,11 @@ program pii_scan_strings
 		local flagged_vars : list uniq flagged_vars
 		
 		***Dont output variable to list if all observations are missing:
-		foreach var of local flagged_vars {
+		local flagged_vars_copy `flagged_vars'
+		foreach var of local flagged_vars_copy {
 			capture qui assert mi(`var')
 			if !_rc {
+				display "`var' is missing for all observations - don't output to excel"
 				local flagged_vars : list flagged_vars - var
 			}
 		}
@@ -303,6 +305,4 @@ program pii_scan_strings
 	putexcel clear
 end
 
-pii_scan_strings ${directory_to_scan}, remove_search_list(lon lat second degree minute district) ignore_varname(material)
-
-
+pii_scan_strings ${directory_to_scan}, remove_search_list(lon lat second degree minute district) ignore_varname(material villageid)
