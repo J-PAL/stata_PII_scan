@@ -1,33 +1,3 @@
-/*********************************************************************************************************************************************
-Description: This file will scan all .dta files within a directory and all of its subdirectories for potential PII. Potential PII includes 
-variables with names or labels containing any of the strings in global search_string. The program decodes all encoded numeric variables (i.e. 
-those with value labels or those created using the command "encode") to create string variables, which are searched along with all original 
-string variables for variables with string lengths greater than 3 (or user-defined length). Flagged variables are saved to pii_stata_output.xlsx. 
-
-Inputs: Path to top directory.
-Outputs: pii_stata_output.xlsx (saved to current working directory)
-Date Last Modified: February 22, 2018
-Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
-**********************************************************************************************************************************************/
-
-version 15.1
-clear all
-set more off 
-set maxvar 120000
-
-if c(username)=="mbc96_TH" {
-	sysdir set PLUS "U:\Documents\Stata_personal\Downloaded" 
-	sysdir set PERSONAL "U:\Documents\Stata_personal\Personal"
-	
-	cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.xlsx
-	global directory_to_scan "" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN
-}
-
-***Command "filelist" required:
-capture ssc install filelist
-
-
-****************************** ADD OR REMOVE SEARCH STRINGS AS NEEDED: ******************************
 #delimit ;
 global search_strings
 	address
@@ -302,6 +272,3 @@ program pii_scan
 	}
 	putexcel clear
 end
-
-pii_scan ${directory_to_scan}, remove_search_list(lon lat second degree minute district) ignore_varname(material villageid) samples(10)
-
