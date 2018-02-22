@@ -73,7 +73,12 @@ pii_scan "path of directory to scan" [, *options*]
 
 ### Example: 
 
-pii_scan "C:/Documents/PII_Scan", remove_search_list(lat lon zip) add_search_list(q15) ignore_varname(Not_PII_Name) string_length(5) samples(integer 10)
+pii_scan "C:/Documents/PII_Scan", remove_search_list(lat lon zip) add_search_list(q15) ignore_varname(Not_PII_Name) string_length(5) samples(10)
+* **remove_search_list(lat lon zip)** removes lat, lon, and zip from list of strings to search for 
+* **add_search_list(q15)** adds q15 to list of strings to search for 
+* **ignore_varname(Not_PII_Name)** tells the program not to flag any variables with the string "Not_PII_Name" in the variable name (not sensitive to case)
+* **string_length(5)** flags string variables with lengths greater than 5
+* **samples(10)** writes 10 samples of the data to the output file instead of the default 5
 
 ## Requirements
 
