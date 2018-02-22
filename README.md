@@ -12,52 +12,52 @@ Potential PII includes the following:
 
 ## Search Strings 
 
-	*address
-	*bday
-	*beneficiary
-	*birth 
-	*census
-	*child
-	*city
-	*community
-	*compound
-	*coord
-	*country
-	*degree
-	*district
-	*dob
-	*daughter
-	*email
-	*father
-	*fax
-	*gender
-	*gps
-	*house
-	*husband
-	*lat
-	*loc 
-	*location
-	*lon
-	*minute
-	*mother
-	*municipality
-	*name
-	*network
-	*panchayat
-	*parish
-	*precinct
-	*school
-	*second
-	*sex
-	*social
-	*son
-	*street
-	*subcountry
-	*territory
-	*url
-	*village
-	*wife
-	*zip
+	* address
+	* bday
+	* beneficiary
+	* birth 
+	* census
+	* child
+	* city
+	* community
+	* compound
+	* coord
+	* country
+	* degree
+	* district
+	* dob
+	* daughter
+	* email
+	* father
+	* fax
+	* gender
+	* gps
+	* house
+	* husband
+	* lat
+	* loc 
+	* location
+	* lon
+	* minute
+	* mother
+	* municipality
+	* name
+	* network
+	* panchayat
+	* parish
+	* precinct
+	* school
+	* second
+	* sex
+	* social
+	* son
+	* street
+	* subcountry
+	* territory
+	* url
+	* village
+	* wife
+	* zip
 
 ## Instructions
 
@@ -66,11 +66,11 @@ Potential PII includes the following:
 pii_scan "path of directory to scan" [, *options*]
 
 #### Options:
-	*remove_search_list(string) : remove strings from the search list 
-	*add_search_list(string) : add strings to the search list 
-	*ignore_varname(string) : do not flag variables with any of these strings in the variable name
-	*string_length(#) : length of string variables to flag (default is 3)
-	*samples(#) : number of samples to write to output file (default is 5) 
+	* **remove_search_list(string)**: remove strings from the search list 
+	* **add_search_list(string)**: add strings to the search list 
+	* **ignore_varname(string)**: do not flag variables with any of these strings in the variable name
+	* **string_length(#)**: length of string variables to flag (default is 3)
+	* **samples(#)**: number of samples to write to output file (default is 5) 
 
 #### Example: 
 
