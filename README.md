@@ -83,7 +83,7 @@ pii_scan "C:/Documents/PII_Scan", remove_search_list(lat lon zip) add_search_lis
 * **samples(10)** writes 10 samples of the data to the output file instead of the default 5
 
 ## Output 
-The program saves *pii_stata_output.xlsx* to the working directory. The columns of these worksheet are: 
+The program saves *pii_stata_output.xlsx* to the working directory. The columns of this worksheet are: 
 * **file**: Path of the .dta file
 * **var**: Variable name
 * **varlabel**: Variable label
