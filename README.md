@@ -65,7 +65,7 @@ Potential PII includes the following:
 pii_scan "path of directory to scan" [, *options*]
 
 ### Options:
-* **remove_search_list(string)**: remove strings from the search list 
+* **remove_search_list(string)**: remove strings from the search list
 * **add_search_list(string)**: add strings to the search list 
 * **ignore_varname(string)**: do not flag variables with any of these strings in the variable name
 * **string_length(#)**: length of string variables to flag (default is 3)
@@ -86,11 +86,11 @@ Stata command "filelist" (running entire do-file will install it automatically)
 
 ## Support
 
-Please use the [issue tracker](https://github.com/J-PAL/PII-Scan/issues) for all support requests.
+Please use the [issue tracker](https://github.com/mbcarlos96/stata_PII_scan/issues) for all support requests.
 
 ## License
 
-See [license file](LICENSE.txt).
+See [license file](LICENSE).
 
 ## Thanks
 Special thanks to IPA for their [How to Search Datasets for Personally Identifiable Information](http://www.poverty-action.org/sites/default/files/Guideline_How-to-Search-Datasets-for-PII.pdf) document which inspired this project.
