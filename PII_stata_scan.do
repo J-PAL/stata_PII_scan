@@ -6,7 +6,7 @@ string variables for variables with string lengths greater than 3 (or user-defin
 
 Inputs: Path to top directory.
 Outputs: pii_stata_output.xlsx (saved to current working directory)
-Date Last Modified: February 20, 2018
+Date Last Modified: February 22, 2018
 Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
@@ -16,17 +16,11 @@ set more off
 set maxvar 120000
 
 if c(username)=="mbc96_TH" {
-	sysdir set PLUS "U:\Documents\Stata_personal\Downloaded"
+	sysdir set PLUS "U:\Documents\Stata_personal\Downloaded" 
 	sysdir set PERSONAL "U:\Documents\Stata_personal\Personal"
-	*Clearing out temporary datasets:
-	cd C:\Users\mbc96_TH\AppData\Local\Temp\130
-	local tempfilelist : dir . files "*.dta"
-	foreach f of local tempfilelist {
-		erase "`f'"
-	}
 	
-	cd "U:/Documents/JPAL/Haryana_Raw_Data_for_PII_Scan" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.xlsx
-	global directory_to_scan "U:/Documents/JPAL/Haryana_Raw_Data_for_PII_Scan" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN
+	cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.xlsx
+	global directory_to_scan "" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN
 }
 
 ***Command "filelist" required:
@@ -83,12 +77,12 @@ global search_strings
 	wife
 	zip
 ;
-#delimit cr
+#delimit cr;
 *****************************************************************************************************
 
-capture program drop pii_scan_strings
-program pii_scan_strings
-	syntax anything(name=search_directory id="path of directory to search")[, remove_search_list(string) add_search_list(string) ignore_varname(string) string_length(integer 3)]
+capture program drop pii_scan
+program pii_scan
+	syntax anything(name=search_directory id="path of directory to search")[, remove_search_list(string) add_search_list(string) ignore_varname(string) string_length(integer 3) samples(integer 5)]
 	/*
 	EXPLANATION OF INPUTS:
 		search_directory = path of directory to search 
@@ -99,6 +93,7 @@ program pii_scan_strings
 				(e.g. if you don't want any variables with the word "materials" to be output to pii_stata_output.xlsx, use option "ignore(materials)"). 
 				NOTE: This does not ignore the word if it is only found in the variable label.
 		string_length = the cutoff length for the strings you want to be flagged. The default is 3 (i.e. strings with lengths greater than 3 will be output to excel file)
+		samples = number of samples to output to excel, default is 5
 	*/
 	
 	*make list of user defined search strings to ignore lowercase:
@@ -139,14 +134,20 @@ program pii_scan_strings
 
 	qui putexcel set pii_stata_output.xlsx, replace
 	local i=0
-	foreach col in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z {
+	foreach col in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z AA AB AC AD AE AF AG AH AI AJ AK AL AM AN AO AP AQ AR AS AT AU AV AW AX AY AZ {
 		local col`++i' "`col'"
 	}
+	
 	local i=0
 	local row=1
-	foreach header in "file" "var" "varlabel" "most freq value" "ratio of diff values/num obs" "samp1" "samp2" "samp3" "samp4" "samp5" {
+	foreach header in "file" "var" "varlabel" "most freq value" "ratio of diff values/num obs" {
 		qui putexcel `col`++i''`row' = `"`header'"'
 	}
+	forvalues j=1/`samples' {
+		qui putexcel `col`++i''`row' = "samp`j'"
+	}
+
+	
 	qui count
 	forvalues i=1/`r(N)' {
 		display "------------------------------------------------------------------------------------------"
@@ -291,12 +292,12 @@ program pii_scan_strings
 			***Sixth column = samp1 (nonmissing) --> tenth column = samp5 (nonmissing):
 			***First sort by tag*group:
 			gsort - `temp5'
-			forvalues m=1/5 {
+			forvalues m=1/`samples' {
 				local samp`m' = `var'[`m']
 			}
-			local num=0
-			foreach column in "F" "G" "H" "I" "J" {
-				qui putexcel `column'`row' = "`samp`++num''"
+			local colstartnum = 5 // first column is F (previous columns filled by other data)
+			forvalues sampnum=1/`samples' {
+				qui putexcel `col`++colstartnum''`row' = "`samp`sampnum''" // `col`colstartnum'' identifies a column local defined earlier in program 
 			}
 			
 			drop `obsnm_temp' `temp2' `temp3' `temp4' `temp5'
@@ -305,4 +306,5 @@ program pii_scan_strings
 	putexcel clear
 end
 
-pii_scan_strings ${directory_to_scan}, remove_search_list(lon lat second degree minute district) ignore_varname(material villageid)
+pii_scan ${directory_to_scan}, remove_search_list(lon lat second degree minute district) ignore_varname(material villageid) samples(10)
+
