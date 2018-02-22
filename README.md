@@ -5,7 +5,7 @@ Stata program to scan for personally identifiable information (PII)
 
 This file will scan all .dta files within a directory and all of its subdirectories for potential PII. A list of potential PII is saved to pii_stata_output.xlsx.
 
-The .ado file can be used in place of the .do file if the users prefers. 
+The .ado file can be used in place of the .do file if the user prefers. 
 
 Potential PII includes the following: 
 - Variables with names or labels containing any of the strings in the search strings list (see below)
