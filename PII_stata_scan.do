@@ -20,7 +20,7 @@ if c(username)=="mbc96_TH" {
 	sysdir set PERSONAL "U:\Documents\Stata_personal\Personal"
 	
 	cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.xlsx
-	global directory_to_scan "" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN
+	global directory_to_scan "" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN (change options at botton of do-file)
 }
 
 ***Command "filelist" required:
@@ -117,9 +117,6 @@ program pii_scan
 	*Make sure list only contains unique values: 
 	global final_search_list : list uniq global(final_search_list)
 	
-	display "LIST OF SEARCH STRINGS TO SEARCH THROUGH:"
-	display "$final_search_list"
-	
 	tempfile file_list 
 	filelist, directory(`search_directory') pattern("*.dta")
 	gen temp="/"
@@ -212,7 +209,21 @@ program pii_scan
 			qui gen `temp1' = length(`var') // string length 
 			qui sum `temp1'
 			if `r(max)'>`string_length' {
-				local strings_to_output "`strings_to_output' `var'"
+				local var_name = lower("`var'")
+				local lab: variable label `var'
+				local add_to_flagged=1
+				*Don't flag the variable if the variable name has any of the strings listed by the user in ignore_varname option:
+				foreach ignore_string of local ignore_varname {
+					local lower_ignore_string = lower("`ignore_string'")
+					local ignore_name_pos = strpos("`var_name'","`lower_ignore_string'")
+					if `ignore_name_pos'!=0 {
+						local add_to_flagged=0
+					}
+				}
+				if `add_to_flagged'==1 {
+					display "`var' (label = `lab') has length > `string_length'"
+					local strings_to_output "`strings_to_output' `var'"
+				}
 			}
 			drop `temp1'
 		}
@@ -242,7 +253,7 @@ program pii_scan
 						}
 					}
 					if `add_to_flagged'==1 {
-						display "search term `search_string' found in `var_name' (label = `var_label')"
+						display "search term `search_string' found in `var' (label = `var_label')"
 						local flagged_vars "`flagged_vars' `var'"
 					}
 				}
@@ -288,20 +299,23 @@ program pii_scan
 			qui putexcel E`row' = "`r(max)'/`N'"
 			***Sixth column = samp1 (nonmissing) --> tenth column = samp5 (nonmissing):
 			***First sort by tag*group:
-			gsort - `temp5'
-			forvalues m=1/`samples' {
-				local samp`m' = `var'[`m']
+			*** Only do the sorting if samples>0:
+			if `samples'>0 {
+				gsort - `temp5'
+				forvalues m=1/`samples' {
+					local samp`m' = `var'[`m']
+				}
+				local colstartnum = 5 // first column is F (previous columns filled by other data)
+				forvalues sampnum=1/`samples' {
+					qui putexcel `col`++colstartnum''`row' = "`samp`sampnum''" // `col`colstartnum'' identifies a column local defined earlier in program 
+				}
 			}
-			local colstartnum = 5 // first column is F (previous columns filled by other data)
-			forvalues sampnum=1/`samples' {
-				qui putexcel `col`++colstartnum''`row' = "`samp`sampnum''" // `col`colstartnum'' identifies a column local defined earlier in program 
-			}
-			
 			drop `obsnm_temp' `temp2' `temp3' `temp4' `temp5'
 		}
 	}
 	putexcel clear
 end
 
-pii_scan ${directory_to_scan}, remove_search_list(lon lat second degree minute district) ignore_varname(material villageid) samples(10)
+
+pii_scan ${directory_to_scan}, remove_search_list(lon lat second degree minute district) add_search_list(quadrant) string_length(8) ignore_varname(material villageid) samples(2)
 
