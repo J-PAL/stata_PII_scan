@@ -13,52 +13,7 @@ Potential PII includes the following:
 Note the .ado file can be used in place of the .do file if the user prefers. 
 
 ## Search Strings 
-* address
-* bday
-* beneficiary
-* birth 
-* census
-* child
-* city
-* community
-* compound
-* coord
-* country
-* degree
-* district
-* dob
-* daughter
-* email
-* father
-* fax
-* gender
-* gps
-* house
-* husband
-* lat
-* loc 
-* location
-* lon
-* minute
-* mother
-* municipality
-* name
-* network
-* panchayat
-* parish
-* precinct
-* school
-* second
-* sex
-* social
-* son
-* street
-* subcountry
-* territory
-* url
-* village
-* wife
-* zip
+address, bday, beneficiary, birth, census, child, city, community, compound, coord, country, degree, district, dob, daughter, email, father, fax, gender, gps, house, husband, lat, loc, location, lon, minute, mother, municipality, name, network, panchayat, parish, precinct, school, second, sex, social, son, street, subcountry, territory, url, village, wife, zip
 
 ## Instructions
 
