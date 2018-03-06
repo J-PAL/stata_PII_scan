@@ -6,7 +6,7 @@ string variables for variables with string lengths greater than 3 (or user-defin
 
 Inputs: Path to top directory.
 Outputs: pii_stata_output.xlsx (saved to current working directory)
-Date Last Modified: February 22, 2018
+Date Last Modified: March 06, 2018
 Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
@@ -34,6 +34,7 @@ global search_strings
 	bday
 	beneficiary
 	birth 
+	block
 	census
 	child
 	city
@@ -63,12 +64,14 @@ global search_strings
 	network
 	panchayat
 	parish
+	phone 
 	precinct
 	school
 	second
 	sex
 	social
 	son
+	spouse 
 	street
 	subcountry
 	territory

@@ -4,6 +4,7 @@ global search_strings
 	bday
 	beneficiary
 	birth 
+	block
 	census
 	child
 	city
@@ -33,12 +34,14 @@ global search_strings
 	network
 	panchayat
 	parish
+	phone 
 	precinct
 	school
 	second
 	sex
 	social
 	son
+	spouse 
 	street
 	subcountry
 	territory
