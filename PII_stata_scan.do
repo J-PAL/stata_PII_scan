@@ -6,7 +6,7 @@ string variables for variables with string lengths greater than 3 (or user-defin
 
 Inputs: Path to top directory.
 Outputs: pii_stata_output.xlsx (saved to current working directory)
-Date Last Modified: March 06, 2018
+Date Last Modified: March 21, 2018
 Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
@@ -15,13 +15,13 @@ clear all
 set more off 
 set maxvar 120000
 
-if c(username)=="mbc96_TH" {
-	sysdir set PLUS "U:\Documents\Stata_personal\Downloaded" 
-	sysdir set PERSONAL "U:\Documents\Stata_personal\Personal"
-	
-	cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.xlsx
-	global directory_to_scan "" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN (change options at botton of do-file)
-}
+
+*sysdir set PLUS "" 
+*sysdir set PERSONAL ""
+
+cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.xlsx
+global directory_to_scan "" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN (change options at botton of do-file)
+
 
 ***Command "filelist" required:
 capture ssc install filelist
@@ -294,6 +294,13 @@ program pii_scan
 			***Fourth column=most frequent value  -- mode = `temp3' - value where tag*group (`temp5') = mode
 			qui gen `obsnm_temp'=_n
 			qui sum `obsnm_temp' if `temp3'==`temp5'
+			
+			***Remove quotation marks from STRING variables - quotation marks cause a problem when writing to excel
+			capture confirm string variable `var'
+			if _rc==0 {
+				qui replace `var' = subinstr(`var',`"""',"",.)
+			}
+			
 			local most_freq_value = `var'[`r(mean)']
 			qui putexcel D`row' = "`most_freq_value'"
 			***Fifth column = ratio of num diff values/num obs
@@ -320,5 +327,5 @@ program pii_scan
 end
 
 
-pii_scan ${directory_to_scan}, remove_search_list(lon lat second degree minute district) add_search_list(quadrant) string_length(8) ignore_varname(material villageid) samples(2)
+pii_scan ${directory_to_scan}
 
