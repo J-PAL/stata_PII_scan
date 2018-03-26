@@ -6,7 +6,7 @@ string variables for variables with string lengths greater than 3 (or user-defin
 
 Inputs: Path to top directory.
 Outputs: pii_stata_output.xlsx (saved to current working directory)
-Date Last Modified: March 21, 2018
+Date Last Modified: March 26, 2018
 Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
@@ -14,7 +14,6 @@ version 15.1
 clear all
 set more off 
 set maxvar 120000
-
 
 *sysdir set PLUS "" 
 *sysdir set PERSONAL ""
@@ -85,7 +84,7 @@ global search_strings
 
 capture program drop pii_scan
 program pii_scan
-	syntax anything(name=search_directory id="path of directory to search")[, remove_search_list(string) add_search_list(string) ignore_varname(string) string_length(integer 3) samples(integer 5)]
+	syntax anything(name=search_directory id="path of directory to search")[, remove_search_list(string) add_search_list(string) ignore_varname(string) string_length(integer 3) samples(integer 5) time]
 	/*
 	EXPLANATION OF INPUTS:
 		search_directory = path of directory to search 
@@ -97,7 +96,11 @@ program pii_scan
 				NOTE: This does not ignore the word if it is only found in the variable label.
 		string_length = the cutoff length for the strings you want to be flagged. The default is 3 (i.e. strings with lengths greater than 3 will be output to excel file)
 		samples = number of samples to output to excel, default is 5
+		time = display time takes to run do-file (start time and end time)
 	*/
+	if !missing("`time'") {
+		local start_time = c(current_time)
+	}
 	
 	*make list of user defined search strings to ignore lowercase:
 	local ignore_strings
@@ -268,9 +271,11 @@ program pii_scan
 		
 		***Dont output variable to list if all observations are missing:
 		local flagged_vars_copy `flagged_vars'
+		qui count 
+		local total_obs = r(N)
 		foreach var of local flagged_vars_copy {
-			capture qui assert mi(`var')
-			if !_rc {
+			qui count if missing(`var')
+			if r(N)==`total_obs' {
 				display "`var' is missing for all observations - don't output to excel"
 				local flagged_vars : list flagged_vars - var
 			}
@@ -324,8 +329,11 @@ program pii_scan
 		}
 	}
 	putexcel clear
+	if !missing("`time'") {
+		display "START TIME = `start_time'"
+		display "END TIME = " c(current_time)
+	}
 end
 
 
 pii_scan ${directory_to_scan}
-
