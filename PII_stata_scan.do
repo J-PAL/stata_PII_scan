@@ -178,9 +178,23 @@ program pii_scan
 				local var_prefix "`var'"
 			}
 			capture decode `var', gen(`var_prefix'DCD)
-			if _rc==0 {
-				local decoded_vars_original "`decoded_vars_original' `var'"
-				local decoded_vars_renamed "`decoded_vars_renamed' `var_prefix'DCD"
+			if _rc==0 { // if the variable is successfully decoded (i.e. it has a value label):
+				*** Make sure that the decoded variable is not missing for all obs 
+				*   - if it is missing then there is a value label associated with this variable but none of the numeric values the variable takes correspond to 
+				*   the strings in the value label:
+				qui count
+				local n1=r(N)
+				qui count if mi(`var_prefix'DCD)
+				local n2=r(N)
+				
+				*If the decoded variable is NOT missing for all observations, add it to list of decoded variables: 
+				if `n1'!=`n2' {
+					local decoded_vars_original "`decoded_vars_original' `var'"
+					local decoded_vars_renamed "`decoded_vars_renamed' `var_prefix'DCD"
+				}
+				else {
+					drop `var_prefix'DCD
+				}
 			}
 		}
 		if "`decoded_vars_original'"!="" {
