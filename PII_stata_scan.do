@@ -135,7 +135,7 @@ program pii_scan
 	capture file close output_file
 	file open output_file using pii_stata_output.csv, write replace text
 	
-	foreach header in "file" "var" "varlabel" "most freq value" "ratio of diff values/num obs" {
+	foreach header in "file" "var" "varlabel" "most freq value" "unique values" "total obs" {
 		file write output_file _char(34) `"`header'"' _char(34) ","
 	}
 	forvalues i=1/`samples' {
@@ -297,11 +297,14 @@ program pii_scan
 			local most_freq_value = subinstr(`"`most_freq_value'"',`"""',"",.)
 			file write output_file _char(34) `"`most_freq_value'"' _char(34) ","
 			***Fifth column = ratio of num diff values/num obs
+			***Fifth column = # of unique values
 			qui sum `temp2'
-			***NOTE: `N' comes from "qui count" when file is first opened
-			file write output_file _char(34) `"`r(max)'/`N'"' _char(34) ","
+			file write output_file _char(34) `"`r(max)'"' _char(34) ","
 			local num_unique_values = `r(max)' // save this to use for writing samples below
-			***Sixth column = samp1 (nonmissing) --> tenth column = samp5 (nonmissing):
+			***Sixth column = total observations
+			***NOTE: `N' comes from "qui count" when file is first opened
+			file write output_file _char(34) `"`N'"' _char(34) ","
+			***Seventh column = samp1 (nonmissing) --> N+7th column = sampN (nonmissing):
 			***First sort by tag*group:
 			*** Only do the sorting if samples>0:
 			if `samples'>0 {
