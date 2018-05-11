@@ -15,7 +15,9 @@ clear all
 set more off 
 set maxvar 120000
 
+
 cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.csv
+
 global directory_to_scan "" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN (change options at botton of do-file)
 
 
@@ -170,9 +172,23 @@ program pii_scan
 				local var_prefix "`var'"
 			}
 			capture decode `var', gen(`var_prefix'DCD)
-			if _rc==0 {
-				local decoded_vars_original "`decoded_vars_original' `var'"
-				local decoded_vars_renamed "`decoded_vars_renamed' `var_prefix'DCD"
+			if _rc==0 { // if the variable is successfully decoded (i.e. it has a value label):
+				*** Make sure that the decoded variable is not missing for all obs 
+				*   - if it is missing then there is a value label associated with this variable but none of the numeric values the variable takes correspond to 
+				*   the strings in the value label:
+				qui count
+				local n1=r(N)
+				qui count if mi(`var_prefix'DCD)
+				local n2=r(N)
+				
+				*If the decoded variable is NOT missing for all observations, add it to list of decoded variables: 
+				if `n1'!=`n2' {
+					local decoded_vars_original "`decoded_vars_original' `var'"
+					local decoded_vars_renamed "`decoded_vars_renamed' `var_prefix'DCD"
+				}
+				else {
+					drop `var_prefix'DCD
+				}
 			}
 		}
 		if "`decoded_vars_original'"!="" {
@@ -263,9 +279,11 @@ program pii_scan
 		
 		***Dont output variable to list if all observations are missing:
 		local flagged_vars_copy `flagged_vars'
+		qui count 
+		local total_obs = r(N)
 		foreach var of local flagged_vars_copy {
-			capture qui assert mi(`var')
-			if !_rc {
+			qui count if missing(`var')
+			if r(N)==`total_obs' {
 				display "`var' is missing for all observations - don't output to CSV"
 				local flagged_vars : list flagged_vars - var
 			}
@@ -320,7 +338,9 @@ program pii_scan
 			file write output_file _n
 		}
 	}
+
 	file close output_file
+
 	if !missing("`time'") {
 		display "START TIME = `start_time'"
 		display "END TIME = " c(current_time)
@@ -329,4 +349,3 @@ end
 
 
 pii_scan ${directory_to_scan}
-
