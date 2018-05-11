@@ -2,11 +2,11 @@
 Description: This file will scan all .dta files within a directory and all of its subdirectories for potential PII. Potential PII includes 
 variables with names or labels containing any of the strings in global search_string. The program decodes all encoded numeric variables (i.e. 
 those with value labels or those created using the command "encode") to create string variables, which are searched along with all original 
-string variables for variables with string lengths greater than 3 (or user-defined length). Flagged variables are saved to pii_stata_output.xlsx. 
+string variables for variables with string lengths greater than 3 (or user-defined length). Flagged variables are saved to pii_stata_output.csv. 
 
 Inputs: Path to top directory.
-Outputs: pii_stata_output.xlsx (saved to current working directory)
-Date Last Modified: March 26, 2018
+Outputs: pii_stata_output.csv (saved to current working directory)
+Date Last Modified: May 7, 2018
 Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
@@ -15,10 +15,9 @@ clear all
 set more off 
 set maxvar 120000
 
-*sysdir set PLUS "" 
-*sysdir set PERSONAL ""
 
-cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.xlsx
+cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.csv
+
 global directory_to_scan "" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN (change options at botton of do-file)
 
 
@@ -91,11 +90,11 @@ program pii_scan
 		remove_search_list = list of strings to remove from the search list (e.g. if you don't want to search for string with "zip" or "wife" in the name or label, use 
 							 option remove_search_list(zip wife)
 		add_search_list = list of strings to add to the search list (e.g. if you also want to search for "person" in name/label, use option add_search_list(person)
-		ignore_varname = A list of strings such that if there are any variables flagged with any of these strings in the VARIABLE NAME, they will NOT be output to the excel file 
+		ignore_varname = A list of strings such that if there are any variables flagged with any of these strings in the VARIABLE NAME, they will NOT be output to the CSV file 
 				(e.g. if you don't want any variables with the word "materials" to be output to pii_stata_output.xlsx, use option "ignore(materials)"). 
 				NOTE: This does not ignore the word if it is only found in the variable label.
-		string_length = the cutoff length for the strings you want to be flagged. The default is 3 (i.e. strings with lengths greater than 3 will be output to excel file)
-		samples = number of samples to output to excel, default is 5
+		string_length = the cutoff length for the strings you want to be flagged. The default is 3 (i.e. strings with lengths greater than 3 will be output to CSV file)
+		samples = number of samples to output to CSV, default is 5
 		time = display time takes to run do-file (start time and end time)
 	*/
 	if !missing("`time'") {
@@ -135,27 +134,22 @@ program pii_scan
 		local file_`i' = file_path[`i']
 	}
 
-	qui putexcel set pii_stata_output.xlsx, replace
-	local i=0
-	foreach col in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z AA AB AC AD AE AF AG AH AI AJ AK AL AM AN AO AP AQ AR AS AT AU AV AW AX AY AZ {
-		local col`++i' "`col'"
-	}
+	capture file close output_file
+	file open output_file using pii_stata_output.csv, write replace text
 	
-	local i=0
-	local row=1
 	foreach header in "file" "var" "varlabel" "most freq value" "ratio of diff values/num obs" {
-		qui putexcel `col`++i''`row' = `"`header'"'
+		file write output_file _char(34) `"`header'"' _char(34) ","
 	}
-	forvalues j=1/`samples' {
-		qui putexcel `col`++i''`row' = "samp`j'"
+	forvalues i=1/`samples' {
+		file write output_file _char(34) `"samp`i'"' _char(34) ","
 	}
-
+	file write output_file _n
 	
 	qui count
 	forvalues i=1/`r(N)' {
 		use "`file_`i''", clear
 		qui count 
-		local N = r(N) // USED WHEN OUTPUTING TO EXCEL
+		local N = r(N) // USED WHEN OUTPUTING TO CSV
 		***Initialize locals:
 		local decoded_vars_original
 		local decoded_vars_renamed
@@ -290,7 +284,7 @@ program pii_scan
 		foreach var of local flagged_vars_copy {
 			qui count if missing(`var')
 			if r(N)==`total_obs' {
-				display "`var' is missing for all observations - don't output to excel"
+				display "`var' is missing for all observations - don't output to CSV"
 				local flagged_vars : list flagged_vars - var
 			}
 		}
@@ -304,28 +298,27 @@ program pii_scan
 			qui gen `temp5' = `temp4'*`temp2' // tag*group = 1 for first obs in group 1, 0 for second obs in group 1, 2 for first obs in group 2, etc
 
 			***First column=path
-			qui putexcel A`++row' = "`file_`i''"
+			file write output_file _char(34) `"`file_`i''"' _char(34) ","
 			***Second column=variable nam
-			qui putexcel B`row' = "`var'"
+			file write output_file _char(34) `"`var'"' _char(34) ","
 			***Third column=label
 			local lab: variable label `var'
-			qui putexcel C`row' = "`lab'"
+			***Remove double quotation marks from label which messes up writing to single cells of CSV file:
+			local lab = subinstr(`"`lab'"',`"""',"",.)
+			file write output_file _char(34) `"`lab'"' _char(34) ","
 			***Fourth column=most frequent value  -- mode = `temp3' - value where tag*group (`temp5') = mode
 			qui gen `obsnm_temp'=_n
 			qui sum `obsnm_temp' if `temp3'==`temp5'
 			
-			***Remove quotation marks from STRING variables - quotation marks cause a problem when writing to excel
-			capture confirm string variable `var'
-			if _rc==0 {
-				qui replace `var' = subinstr(`var',`"""',"",.)
-			}
-			
 			local most_freq_value = `var'[`r(mean)']
-			qui putexcel D`row' = "`most_freq_value'"
+			*Remove double quotation marks which mess up writing to single cells of CSV file:
+			local most_freq_value = subinstr(`"`most_freq_value'"',`"""',"",.)
+			file write output_file _char(34) `"`most_freq_value'"' _char(34) ","
 			***Fifth column = ratio of num diff values/num obs
 			qui sum `temp2'
 			***NOTE: `N' comes from "qui count" when file is first opened
-			qui putexcel E`row' = "`r(max)'/`N'"
+			file write output_file _char(34) `"`r(max)'/`N'"' _char(34) ","
+			local num_unique_values = `r(max)' // save this to use for writing samples below
 			***Sixth column = samp1 (nonmissing) --> tenth column = samp5 (nonmissing):
 			***First sort by tag*group:
 			*** Only do the sorting if samples>0:
@@ -334,15 +327,20 @@ program pii_scan
 				forvalues m=1/`samples' {
 					local samp`m' = `var'[`m']
 				}
-				local colstartnum = 5 // first column is F (previous columns filled by other data)
-				forvalues sampnum=1/`samples' {
-					qui putexcel `col`++colstartnum''`row' = "`samp`sampnum''" // `col`colstartnum'' identifies a column local defined earlier in program 
+				local num_samples_output = min(`samples',`num_unique_values') // If there are only 2 unique values, only write 2 samples (samp1 samp2) 
+				forvalues sampnum=1/`num_samples_output' {
+					*Remove double quotation marks which mess up writing to single cells of CSV file:
+					local samp`sampnum' = subinstr(`"`samp`sampnum''"',`"""',"",.)
+					file write output_file _char(34) `"`samp`sampnum''"' _char(34) ","
 				}
 			}
 			drop `obsnm_temp' `temp2' `temp3' `temp4' `temp5'
+			file write output_file _n
 		}
 	}
-	putexcel clear
+
+	file close output_file
+
 	if !missing("`time'") {
 		display "START TIME = `start_time'"
 		display "END TIME = " c(current_time)
