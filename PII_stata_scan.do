@@ -6,7 +6,7 @@ string variables for variables with string lengths greater than 3 (or user-defin
 
 Inputs: Path to top directory.
 Outputs: pii_stata_output.csv (saved to current working directory)
-Date Last Modified: May 7, 2018
+Date Last Modified: May 24, 2018
 Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
@@ -33,6 +33,7 @@ global search_strings
 	beneficiary
 	birth 
 	block
+	cell
 	census
 	child
 	city
@@ -51,10 +52,11 @@ global search_strings
 	gps
 	house
 	husband
-	lat
-	loc 
+	landline
+	latitude
+	loc
 	location
-	lon
+	longitude 
 	minute
 	mother
 	municipality
@@ -130,6 +132,7 @@ program pii_scan
 	save `file_list'
 
 	qui count
+	local total_files = `r(N)'
 	forvalues i=1/`r(N)' {
 		local file_`i' = file_path[`i']
 	}
@@ -145,6 +148,8 @@ program pii_scan
 	}
 	file write output_file _n
 	
+	local total_variables = 0 // used to count/display total number of variables at end
+	local backtick `"`"'
 	qui count
 	forvalues i=1/`r(N)' {
 		use "`file_`i''", clear
@@ -158,7 +163,14 @@ program pii_scan
 		local string_vars
 		local numeric_vars 
 		local all_vars
+		
+		*Drop any variables with strings in the user defined "ignore" list:
+		foreach substring of local ignore_varname {
+			cap drop *`substring'*
+		}
+		
 		foreach var of varlist * {
+			local ++total_variables
 			local all_vars "`all_vars' `var'"
 		}
 
@@ -216,37 +228,12 @@ program pii_scan
 				local numeric_vars "`numeric_vars' `var'"
 			}
 		}
-
-		***Save the list of string variables that have lengths greater than 3 (or user defined value):
-		foreach var of local string_vars {
-			tempvar temp1
-			qui gen `temp1' = length(`var') // string length 
-			qui sum `temp1'
-			if `r(max)'>`string_length' {
-				local var_name = lower("`var'")
-				local lab: variable label `var'
-				local add_to_flagged=1
-				*Don't flag the variable if the variable name has any of the strings listed by the user in ignore_varname option:
-				foreach ignore_string of local ignore_varname {
-					local lower_ignore_string = lower("`ignore_string'")
-					local ignore_name_pos = strpos("`var_name'","`lower_ignore_string'")
-					if `ignore_name_pos'!=0 {
-						local add_to_flagged=0
-					}
-				}
-				if `add_to_flagged'==1 {
-					display "`var' (label = `lab') has length > `string_length'"
-					local strings_to_output "`strings_to_output' `var'"
-				}
-			}
-			drop `temp1'
-		}
 		
-		***Search through the rest of the variables and see if there are any of the PII search words in the variable names or labels:
+		***Search through the variables and see if there are any of the PII search words in the variable names or labels:
 		***Only look through variables that havent been assigned to be output to CSV sheet already
-		local search_list : list all_vars - strings_to_output 
-		local flagged_vars "`strings_to_output'"
-		foreach var of local search_list {
+		*local search_list : list all_vars - strings_to_output 
+		local flagged_vars "" // local flagged_vars "`strings_to_output'"
+		foreach var of local all_vars { // foreach var of local search_list {
 			local lab: variable label `var'
 			local var_label = lower("`lab'")
 			local var_name = lower("`var'")
@@ -257,22 +244,29 @@ program pii_scan
 				***Look for string in variable label: 
 				local label_pos = strpos("`var_label'","`search_string'")
 				if `name_pos'!=0 | `label_pos' !=0 {
-					local add_to_flagged=1
-					*Don't flag the variable if the variable name has any of the strings listed by the user in ignore_varname option:
-					foreach ignore_string of local ignore_varname {
-						local lower_ignore_string = lower("`ignore_string'")
-						local ignore_name_pos = strpos("`var_name'","`lower_ignore_string'")
-						if `ignore_name_pos'!=0 {
-							local add_to_flagged=0
-						}
-					}
-					if `add_to_flagged'==1 {
-						display "search term `search_string' found in `var' (label = `var_label')"
-						local flagged_vars "`flagged_vars' `var'"
-					}
+					display "search term `search_string' found in `var' (label = `var_label')"
+					local flagged_vars "`flagged_vars' `var'"
 				}
 			}
 		}
+		
+		
+		*** Search through the STRING variables that havent been flagged by the name/label search to find variables with lengths greater than 3:
+		*******local search_list : list all_vars - strings_to_output 
+		local string_vars_to_search : list string_vars - flagged_vars
+		foreach var of local string_vars_to_search {
+			tempvar temp1
+			qui gen `temp1' = length(`var') // string length 
+			qui sum `temp1'
+			if `r(max)'>`string_length' {
+				local var_name = lower("`var'")
+				local lab: variable label `var'
+				display "`var' (label = `lab') has length > `string_length'"
+				local flagged_vars "`flagged_vars' `var'"
+			}
+			drop `temp1'
+		}
+
 		
 		***Make sure list of flagged variables does not contain repeated variables:
 		local flagged_vars : list uniq flagged_vars
@@ -303,6 +297,7 @@ program pii_scan
 			file write output_file _char(34) `"`var'"' _char(34) ","
 			***Third column=label
 			local lab: variable label `var'
+			local lab : subinstr local lab "`backtick'" "" // remove backtick 
 			***Remove double quotation marks from label which messes up writing to single cells of CSV file:
 			local lab = subinstr(`"`lab'"',`"""',"",.)
 			file write output_file _char(34) `"`lab'"' _char(34) ","
@@ -311,6 +306,7 @@ program pii_scan
 			qui sum `obsnm_temp' if `temp3'==`temp5'
 			
 			local most_freq_value = `var'[`r(mean)']
+			local most_freq_value : subinstr local most_freq_value "`backtick'" "" // remove backtick 
 			*Remove double quotation marks which mess up writing to single cells of CSV file:
 			local most_freq_value = subinstr(`"`most_freq_value'"',`"""',"",.)
 			file write output_file _char(34) `"`most_freq_value'"' _char(34) ","
@@ -333,6 +329,7 @@ program pii_scan
 				local num_samples_output = min(`samples',`num_unique_values') // If there are only 2 unique values, only write 2 samples (samp1 samp2) 
 				forvalues sampnum=1/`num_samples_output' {
 					*Remove double quotation marks which mess up writing to single cells of CSV file:
+					local samp`sampnum' : subinstr local samp`sampnum' "`backtick'" "" // remove backtick 
 					local samp`sampnum' = subinstr(`"`samp`sampnum''"',`"""',"",.)
 					file write output_file _char(34) `"`samp`sampnum''"' _char(34) ","
 				}
@@ -348,6 +345,9 @@ program pii_scan
 		display "START TIME = `start_time'"
 		display "END TIME = " c(current_time)
 	}
+	
+	display "NUMBER OF FILES SCANNED = `total_files'"
+	display "NUMBER OF VARIABLES SCANND = `total_variables'"
 end
 
 
