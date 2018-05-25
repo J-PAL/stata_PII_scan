@@ -41,7 +41,6 @@ global search_strings
 	compound
 	coord
 	country
-	degree
 	district
 	daughter
 	email
@@ -54,8 +53,7 @@ global search_strings
 	landline
 	latitude
 	location
-	longitude 
-	minute
+	longitude
 	mother
 	municipality
 	name
@@ -65,7 +63,6 @@ global search_strings
 	phone 
 	precinct
 	school
-	second
 	sex
 	social
 	spouse 
@@ -322,6 +319,31 @@ program pii_scan
 		*Remove duplicates in list of flagged vars:
 		local flagged_vars : list uniq flagged_vars
 		
+		*Search through the remaining variables to see if there are variables for degree minute second. Only output the variables if all three are present, otherwise they are not likely to be PII:
+		*initialize locals:
+		foreach gps_string in degree minute second {
+			local `gps_string' = 0
+			local `gps_string'_vars
+		}
+		local gps_var_search : list all_vars - flagged_vars
+		foreach var of local gps_var_search {
+			local var_name = lower("`var'")
+			local lab: variable label `var'
+			local var_label = lower("`lab'")
+			foreach gps_string in degree minute second {
+				if strmatch("`var_name'","*`gps_string'*")==1 | strmatch("`var_label'","*`gps_string'*")==1 { 
+					local `gps_string' = 1
+					local `gps_string'_vars "``gps_string'_vars' `var'"
+				}
+			}
+		}
+		if `degree'==1 & `minute'==1 & `second' == 1 {
+			local flagged_vars "`flagged_vars' `degree_vars' `minute_vars' `second_vars'"
+		}
+		
+		*Remove duplicates in list of flagged vars:
+		local flagged_vars : list uniq flagged_vars
+			
 	
 		***Search through the variables and see if there are any of the PII search words in the variable names or labels:
 		***Only look through variables that havent been assigned to be output to CSV sheet already
