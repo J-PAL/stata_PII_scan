@@ -6,7 +6,7 @@ string variables for variables with string lengths greater than 3 (or user-defin
 
 Inputs: Path to top directory.
 Outputs: pii_stata_output.csv (saved to current working directory)
-Date Last Modified: May 7, 2018
+Date Last Modified: May 24, 2018
 Last Modified By: Marisa Carlos (mcarlos@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
@@ -130,6 +130,7 @@ program pii_scan
 	save `file_list'
 
 	qui count
+	local total_files = `r(N)'
 	forvalues i=1/`r(N)' {
 		local file_`i' = file_path[`i']
 	}
@@ -145,6 +146,8 @@ program pii_scan
 	}
 	file write output_file _n
 	
+	local total_variables = 0 // used to count/display total number of variables at end
+	local backtick `"`"'
 	qui count
 	forvalues i=1/`r(N)' {
 		use "`file_`i''", clear
@@ -159,6 +162,7 @@ program pii_scan
 		local numeric_vars 
 		local all_vars
 		foreach var of varlist * {
+			local ++total_variables
 			local all_vars "`all_vars' `var'"
 		}
 
@@ -303,6 +307,7 @@ program pii_scan
 			file write output_file _char(34) `"`var'"' _char(34) ","
 			***Third column=label
 			local lab: variable label `var'
+			local lab : subinstr local lab "`backtick'" "" // remove backtick 
 			***Remove double quotation marks from label which messes up writing to single cells of CSV file:
 			local lab = subinstr(`"`lab'"',`"""',"",.)
 			file write output_file _char(34) `"`lab'"' _char(34) ","
@@ -311,6 +316,7 @@ program pii_scan
 			qui sum `obsnm_temp' if `temp3'==`temp5'
 			
 			local most_freq_value = `var'[`r(mean)']
+			local most_freq_value : subinstr local most_freq_value "`backtick'" "" // remove backtick 
 			*Remove double quotation marks which mess up writing to single cells of CSV file:
 			local most_freq_value = subinstr(`"`most_freq_value'"',`"""',"",.)
 			file write output_file _char(34) `"`most_freq_value'"' _char(34) ","
@@ -333,6 +339,7 @@ program pii_scan
 				local num_samples_output = min(`samples',`num_unique_values') // If there are only 2 unique values, only write 2 samples (samp1 samp2) 
 				forvalues sampnum=1/`num_samples_output' {
 					*Remove double quotation marks which mess up writing to single cells of CSV file:
+					local samp`sampnum' : subinstr local samp`sampnum' "`backtick'" "" // remove backtick 
 					local samp`sampnum' = subinstr(`"`samp`sampnum''"',`"""',"",.)
 					file write output_file _char(34) `"`samp`sampnum''"' _char(34) ","
 				}
@@ -348,6 +355,9 @@ program pii_scan
 		display "START TIME = `start_time'"
 		display "END TIME = " c(current_time)
 	}
+	
+	display "NUMBER OF FILES SCANNED = `total_files'"
+	display "NUMBER OF VARIABLES SCANND = `total_variables'"
 end
 
 
