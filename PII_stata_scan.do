@@ -306,11 +306,13 @@ program pii_scan
 			if strmatch("`var_name'","*lat*")==1 | strmatch("`var_label'","*lat*")==1 {
 				*if it's in the PREV variable name or label:
 				if strmatch("`prev_var'","*lon*")==1 |  strmatch("`prev_var_label'","*lon*")==1 {
+					display "lat/lon variable found: `var' (label = `var_label')"
 					*ADD CURRENT VARIABLE AND PREVOUS VARIABLE TO FLAGGED:
 					local flagged_vars "`flagged_vars' `var' `prev_var_orig_case'"
 				}
 				*if it's in the NEXT variable name or label:
 				if strmatch("`next_var'","*lon*")==1 | strmatch("`next_var_label'","*lon*")==1 {
+					display "lat/lon variable found: `var' (label = `var_label')"
 					* ADD CURRENT VARIABLE AND NEXT VARIABLE TO FLAGGED:
 					local flagged_vars "`flagged_vars' `var' `next_var_orig_case'"
 				}
@@ -398,7 +400,11 @@ program pii_scan
 				local flagged_vars : list flagged_vars - var
 			}
 		}
-				
+		
+		*Drop the non-flagged variables:
+		keep `flagged_vars'
+		qui duplicates drop
+		
 		***Output the flagged variables to csv file: 
 		foreach var of local flagged_vars {
 			local ++total_variables_flagged
@@ -452,6 +458,7 @@ program pii_scan
 				}
 			}
 			drop `obsnm_temp' `temp2' `temp3' `temp4' `temp5'
+			drop `var'
 			file write output_file _n
 		}
 	}
