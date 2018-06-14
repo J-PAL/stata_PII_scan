@@ -150,6 +150,7 @@ program pii_scan
 	
 	local total_variables = 0 // used to count/display total number of variables at end
 	local total_variables_flagged = 0 // used to count/display number of FLAGGED variables at the end
+
 	local backtick `"`"'
 	qui count
 	forvalues i=1/`r(N)' {
@@ -494,12 +495,14 @@ program pii_scan
 		display "START TIME = `start_time'"
 		display "END TIME = " c(current_time)
 	}
+
 	display ""
 	display "FILES SCANNED = `total_files'"
 	display "VARIABLES SCANNED = `total_variables'"
 	display "VARIABLES WITH POTENTIAL PII = `total_variables_flagged'"
 	display ""
 	display "------------------------------------------------------------"
+
 end
 
 
