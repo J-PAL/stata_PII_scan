@@ -397,7 +397,7 @@ program pii_scan
 		}
 		
 		*Drop the non-flagged variables:
-		keep `flagged_vars'
+		capture keep `flagged_vars'
 		qui duplicates drop
 		
 		***Output the flagged variables to csv file: 
