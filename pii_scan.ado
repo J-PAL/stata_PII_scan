@@ -112,7 +112,7 @@ program pii_scan
 	capture file close output_file
 	file open output_file using pii_stata_output.csv, write replace text
 	
-	foreach header in "file" "var" "varlabel" "most freq value" "unique values" "total obs" {
+	foreach header in "file" "var" "varlabel" "most freq value" "unique values" "total obs" "first reason flagged"{
 		file write output_file _char(34) `"`header'"' _char(34) ","
 	}
 	forvalues i=1/`samples' {
@@ -138,6 +138,7 @@ program pii_scan
 		local numeric_vars 
 		local all_vars
 		local flagged_vars
+		local reason_out
 		
 		*Drop any variables with strings in the user defined "ignore" list:
 		foreach ignore_string of local ignore_varname {
@@ -155,7 +156,6 @@ program pii_scan
 			local ++total_variables
 			local all_vars "`all_vars' `var'"
 		}
-
 		*** Decode all of the string variables that are encoded (this creates a string variable that takes on the values of the value labels) 
 		foreach var of varlist * {
 			*** If the variable name is longer than 31 character, need to substring to get the first 31 letters so can add on DCD
@@ -220,10 +220,13 @@ program pii_scan
 			if lower("`var'")=="lat" {
 				local lat = 1
 				local lat_var "`var'"
+				cap local `var'r "Latitude variable found"
 			}
 			if lower("`var'")=="lon" {
 				local lon = 1
 				local lon_var "`var'"
+				cap local `var'r "Longitude variable found"
+
 			}
 		}
 		if `lat'==1 & `lon'==1 {
@@ -277,14 +280,20 @@ program pii_scan
 				*if it's in the PREV variable name or label:
 				if strmatch("`prev_var'","*lon*")==1 |  strmatch("`prev_var_label'","*lon*")==1 {
 					display "lat/lon variable found: `var' (label = `var_label')"
+					
 					*ADD CURRENT VARIABLE AND PREVOUS VARIABLE TO FLAGGED:
 					local flagged_vars "`flagged_vars' `var' `prev_var_orig_case'"
+					cap local `var'r "Lat/Lon Combination found"
+					local `prev_var_orig_case'r "Lat/Lon Combination found"
 				}
 				*if it's in the NEXT variable name or label:
 				if strmatch("`next_var'","*lon*")==1 | strmatch("`next_var_label'","*lon*")==1 {
 					display "lat/lon variable found: `var' (label = `var_label')"
 					* ADD CURRENT VARIABLE AND NEXT VARIABLE TO FLAGGED:
 					local flagged_vars "`flagged_vars' `var' `next_var_orig_case'"
+					cap local `var'r "Lat/Lon Combination found"
+					local `next_var_orig_case'r "Lat/Lon Combination found"
+
 				}
 			}
 		}
@@ -297,12 +306,14 @@ program pii_scan
 		foreach gps_string in degree minute second {
 			local `gps_string' = 0
 			local `gps_string'_vars
+			local `gps_string'r
 		}
 		local gps_var_search : list all_vars - flagged_vars
 		foreach var of local gps_var_search {
 			local var_name = lower("`var'")
 			local lab: variable label `var'
 			local var_label = lower("`lab'")
+			cap local `var'r "GPS variables found"
 			foreach gps_string in degree minute second {
 				if strmatch("`var_name'","*`gps_string'*")==1 | strmatch("`var_label'","*`gps_string'*")==1 { 
 					local `gps_string' = 1
@@ -327,6 +338,7 @@ program pii_scan
 			local var_label = lower("`lab'")
 			local var_name = lower("`var'")
 			local keep_searching = 1
+			cap local `var'r
 			foreach search_string of global final_search_list {
 				if `keep_searching' == 1 {
 					local search_string = lower(`"`search_string'"')
@@ -336,6 +348,8 @@ program pii_scan
 					local label_pos = strpos("`var_label'","`search_string'")
 					if `name_pos'!=0 | `label_pos' !=0 {
 						display "search term `search_string' found in `var' (label = `var_label')"
+						cap local `var'r "search term `search_string' found in `var' (label = `var_label')"
+						
 						local flagged_vars "`flagged_vars' `var'"
 						local keep_searching = 0
 					}
@@ -349,6 +363,7 @@ program pii_scan
 						*Search the variable name for the exact match or a match at the beginning or end of the variable name or in the middle separated by "_":
 						if "`var_name'"=="`str'" | strmatch("`var_name'","*`str'")==1 | strmatch("`var_name'","`str'*")==1 | strmatch("`var_name'","*_`str'_*")==1 {
 							display "Strict search term `str' found in `var' (label = `var_label')"
+							cap local `var'r "Strict search term `str' found in `var' (label = `var_label')"
 							local flagged_vars "`flagged_vars' `var'"
 							local keep_searching = 0
 						}
@@ -356,6 +371,8 @@ program pii_scan
 						*labels: - search for the full word in the label:
 						if "`var_label'"=="`str'" | strmatch("`var_label'","* `str' *")==1 | strmatch("`var_label'","* `str'")==1 | strmatch("`var_label'","`str' *")==1 {
 							display "Strict search term `str' found in `var' (label = `var_label')"
+							cap local `var'r "Strict search term `str' found in `var' (label = `var_label')"
+
 							local flagged_vars "`flagged_vars' `var'"
 							local keep_searching = 0
 						}
@@ -369,17 +386,18 @@ program pii_scan
 		local string_vars_to_search : list string_vars - flagged_vars
 		foreach var of local string_vars_to_search {
 			tempvar temp1
+			cap local `var'r
 			qui gen `temp1' = length(`var') // string length 
 			qui sum `temp1'
 			if `r(max)'>`string_length' {
 				local var_name = lower("`var'")
 				local lab: variable label `var'
 				display "`var' (label = `lab') has length > `string_length'"
+				cap local `var'r "`var' (label = `lab') has length > `string_length'"
 				local flagged_vars "`flagged_vars' `var'"
 			}
 			drop `temp1'
 		}
-
 		
 		***Make sure list of flagged variables does not contain repeated variables:
 		local flagged_vars : list uniq flagged_vars
@@ -408,7 +426,6 @@ program pii_scan
 			qui egen `temp3' = mode(`temp2'), maxmode // mode of GROUP
 			qui egen `temp4' = tag(`temp2')
 			qui gen `temp5' = `temp4'*`temp2' // tag*group = 1 for first obs in group 1, 0 for second obs in group 1, 2 for first obs in group 2, etc
-
 			***First column=path
 			file write output_file _char(34) `"`file_`i''"' _char(34) ","
 			***Second column=variable nam
@@ -436,7 +453,9 @@ program pii_scan
 			***Sixth column = total observations
 			***NOTE: `N' comes from "qui count" when file is first opened
 			file write output_file _char(34) `"`N'"' _char(34) ","
-			***Seventh column = samp1 (nonmissing) --> N+7th column = sampN (nonmissing):
+			****Seventh column = reason why variable was flagged
+			file write output_file _char(34) `"``var'r'"' _char(34) ","
+			***Eighth column = samp1 (nonmissing) --> N+7th column = sampN (nonmissing):
 			***First sort by tag*group:
 			*** Only do the sorting if samples>0:
 			if `samples'>0 {
@@ -457,8 +476,38 @@ program pii_scan
 			file write output_file _n
 		}
 	}
-
 	file close output_file
+***** This section takes the outputted file, reads it back into Stata, and then combines variables that have the same name and label across datasets	
+clear
+import delimited "pii_stata_output.csv"
+**Cleaning the file names by deleting the directory (would be the same for all)
+replace file = subinstr(file,"$directory_to_scan/", "",.)
+**generating marker for if the variable is found in multiple datasets
+sort var varlabel
+quietly by var varlabel:  gen Multiple_datasets = cond(_N==1,0,_n)
+tempfile master 
+save "`master'", replace
+**adding all of the files the variable is found in to the "file" field
+keep if Multiple_datasets>=1
+bysort var varlabel: sum Multiple_datasets
+local count = r(max)
+forvalues x=1/`count'{
+	replace file = file + ";" + file[_n+`x']
+}
+*dropping the duplicate
+drop if Multiple_datasets>1
+merge 1:m var using "`master'"
+duplicates drop
+**Turning the dummy variable into "yes/no"
+tostring Multiple_datasets, replace
+replace Multiple_datasets = "Yes" if Multiple_datasets == "1"
+replace Multiple_datasets = "No" if Multiple_datasets == "0"
+**Dropping irrelevant variables
+drop _merge v13
+**Labeling the reason a variable was flagged if its variable name was too long previously 
+replace firstreasonflagged = "Variable name too long: search string found" if firstreasonflagged == ""
+**Re-exporting the report
+export delimited "pii_stata_output.csv", replace
 
 	display ""
 	display "------------------------------------------------------------"
@@ -467,12 +516,10 @@ program pii_scan
 		display "START TIME = `start_time'"
 		display "END TIME = " c(current_time)
 	}
-
 	display ""
 	display "FILES SCANNED = `total_files'"
 	display "VARIABLES SCANNED = `total_variables'"
 	display "VARIABLES WITH POTENTIAL PII = `total_variables_flagged'"
 	display ""
 	display "------------------------------------------------------------"
-
 end
