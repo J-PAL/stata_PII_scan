@@ -39,12 +39,15 @@ pii_scan "C:/Documents/PII_Scan", remove_search_list(lat lon zip) add_search_lis
 
 ## Output 
 The program saves *pii_stata_output.xlsx* to the working directory. The columns of this worksheet are: 
-* **file**: Path of the .dta file
+* **file**: Path of the .dta file (excluding the directory to scan); if the variable is in multiple files then all are listed
 * **var**: Variable name
 * **varlabel**: Variable label
 * **most freq value**: Most frequent value of the variable in the data
-* **ratio of diff values/num obs**: The numerator is the number of different values the variable takes in the data (e.g. the number of rows you would get if you used "tab varname"); the denominator is the number of total observations in the data. This is useful when manually inspecting the output for true PII. 
+* **uniquevalues**: Number of unique values of the variable in the data
+* **totalobs**: Number of observations of the variable
+* **firstreasonflagged**: The first reason why the variable was flagged as potential PII
 * **samp1 - sampN**: Samp1 is the first unique, non-missing value the variable takes, samp2 is the second, and so on. This is also useful for manually inspecting the output for true PII.
+* **Multiple_datasets**: Whether the variable is found in multiple datasets in the directory (based on variable name and label).
 
 ## Requirements
 
