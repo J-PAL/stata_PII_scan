@@ -5,14 +5,14 @@ those with value labels or those created using the command "encode") to create s
 string variables for variables with string lengths greater than 3 (or user-defined length). Flagged variables are saved to pii_stata_output.csv. 
 Inputs: Path to top directory.
 Outputs: pii_stata_output.csv (saved to current working directory)
-Date Last Modified: May 8, 2020
+Date Last Modified: August 4, 2020
 Last Modified By: Jack Cavanagh (jcavanagh@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
 version 15.1
 clear all
 set more off 
-set maxvar 32767
+set maxvar //Set maxvar based on your Stata version
 
 
 cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.csv
@@ -407,10 +407,32 @@ program pii_scan
 				}	
 			}	
 		}
+		*** If a binary variable does not have a search term in it and it has at least one value with >=2 responses then it is removed from the search
+		local binary_vars : list all_vars - flagged_vars
+		foreach var of local binary_vars{
+			tempvar nonmiss
+			egen `nonmiss' = total(!missing(`var'))
+			quietly: duplicates report `var'
+			if `r(unique_value)' <=2 & `nonmiss' != `r(unique_value)'{
+				local remove_vars "`remove_vars' `var'"
+			}
+			drop `nonmiss'
+		}
+		*** If a previously encoded variable does not have a search term in it and it has <=10 unique values then it is removed from the search
+		local decoded_vars_new: list decoded_vars_original - flagged_vars
+		foreach var of local decoded_vars_new{
+			tempvar dec_temp
+			qui egen `dec_temp' = group(`var')
+			qui sum `dec_temp'
+			if `dec_temp' <= 10{
+				local remove_vars "`remove_vars' `var'"
+			}
+			drop `dec_temp'
+		}
 		
-		
+		local string_vars_new: list string_vars - remove_vars
 		*** Search through the STRING variables that havent been flagged by the name/label search to find variables with lengths greater than 3:
-		local string_vars_to_search : list string_vars - flagged_vars
+		local string_vars_to_search : list string_vars_new - flagged_vars
 		foreach var of local string_vars_to_search {
 			tempvar temp1
 			cap local `var'r
@@ -512,25 +534,32 @@ replace file = subinstr(file,"$directory_to_scan/", "",.)
 **generating marker for if the variable is found in multiple datasets
 sort var varlabel
 quietly by var varlabel:  gen Multiple_datasets = cond(_N==1,0,_n)
+quietly: sum Multiple_datasets
+if `r(max)' > 0{
+gen max = `r(max)'
 tempfile master 
 save "`master'", replace
-**adding all of the files the variable is found in to the "file" field
+**adding all of the files the variable is found into the "file" field
 keep if Multiple_datasets>=1
-bysort var varlabel: sum Multiple_datasets
+sort var varlabel
+egen group = group(var varlabel)
+quietly: sum max
 local count = r(max)
 forvalues x=1/`count'{
-	replace file = file + ";" + file[_n+`x']
+	replace file = file + ";" + file[_n+`x'] if group == group[_n+`x']
 }
 *dropping the duplicate
 drop if Multiple_datasets>1
 merge 1:m var varlabel using "`master'"
+drop _merge group max
+}
 duplicates drop
 **Turning the dummy variable into "yes/no"
 tostring Multiple_datasets, replace
 replace Multiple_datasets = "Yes" if Multiple_datasets == "1"
 replace Multiple_datasets = "No" if Multiple_datasets == "0"
 **Dropping irrelevant variables
-drop _merge v13
+drop v13
 **Labeling the reason a variable was flagged if its variable name was too long previously 
 replace firstreasonflagged = "Variable name too long: search string found" if firstreasonflagged == ""
 **Re-exporting the report
