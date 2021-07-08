@@ -523,4 +523,3 @@ export delimited "pii_stata_output.csv", replace
 	display ""
 	display "------------------------------------------------------------"
 end
-pii_scan ${directory_to_scan}
