@@ -5,7 +5,7 @@ those with value labels or those created using the command "encode") to create s
 string variables for variables with string lengths greater than 3 (or user-defined length). Flagged variables are saved to pii_stata_output.csv. 
 Inputs: Path to top directory.
 Outputs: pii_stata_output.csv (saved to current working directory)
-Date Last Modified: May 8, 2020
+Date Last Modified: February 3, 2022
 Last Modified By: Jack Cavanagh (jcavanagh@povertyactionlab.org)
 **********************************************************************************************************************************************/
 
@@ -14,15 +14,13 @@ clear all
 set more off 
 set maxvar 32767
 
+cd "/Users/johnccavanagh/Documents/Data pub/PII Scans" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.csv
 
-cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.csv
-
-global directory_to_scan "" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN (change options at botton of do-file)
+global directory_to_scan "/Users/johnccavanagh/Documents/Data pub/De_barros_pub_data/Data" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN (change options at botton of do-file)
 
 
 ***Command "filelist" required:
 capture ssc install filelist
-
 
 ****************************** ADD OR REMOVE SEARCH STRINGS AS NEEDED: ******************************
 #delimit ;
@@ -34,26 +32,18 @@ global search_strings
 	block
 	cell
 	census
-	child
 	city
-	community
 	compound
 	coord
-	country
 	district
-	daughter
 	email
-	father
 	fax
 	gender
 	gps
-	house
-	husband
 	landline
 	latitude
 	location
 	longitude
-	mother
 	municipality
 	name
 	network
@@ -61,18 +51,36 @@ global search_strings
 	parish
 	phone 
 	precinct
-	school
 	sex
+	school
 	social
-	spouse 
 	street
 	subcountry
 	territory
 	village
-	wife
 	zip
+	nama
+	desa
+	kecamatan
+	garis
+	lintang
+	bujur
+	ulang
+	tahun
 ;
+global indirect_search_strings
+	child
+	community
+	country
+	daughter
+	father
+	husband
+	house
+	mother
+	spouse
+	wife
 
+;
 global strict_search_strings
 	url
 	son
@@ -358,7 +366,81 @@ program pii_scan
 	
 		***Search through the variables and see if there are any of the PII search words in the variable names or labels:
 		***Only look through variables that havent been assigned to be output to CSV sheet already
-		local search_list : list all_vars - flagged_vars 
+		
+**************************************************************************************
+********************** New section -- Fall 2020 ********************************************************************
+
+		local small_search : list all_vars - flagged_vars		
+			foreach var of local small_search {
+			local lab: variable label `var'
+			local var_label = lower("`lab'")
+			local var_name = lower("`var'")
+			local keep_searching = 1
+			cap local `var'r
+			foreach search_string of global indirect_search_strings {
+				if `keep_searching' == 1 {
+					local search_string = lower(`"`search_string'"')
+					***Look for string in variable name:
+					local name_pos = strpos("`var_name'","`search_string'")
+					***Look for string in variable label: 
+					local label_pos = strpos("`var_label'","`search_string'")
+					if `name_pos'!=0 | `label_pos' !=0 {
+						display "search term `search_string' found in `var' (label = `var_label')"
+						cap local `var'r "search term `search_string' found in `var' (label = `var_label')"
+						
+						local flagged_vars "`flagged_vars' `var'"
+						local keep_searching = 0
+					}
+				}
+			}	
+			tempvar no_miss
+			if `keep_searching' ==0{
+				egen `no_miss' = total(!missing(`var'))
+				quietly: duplicates report `var'
+				if `r(unique_value)' <=2 {
+					if `no_miss' != `r(unique_value)'{
+						local rem_vars "`rem_vars' `var'"
+					}
+				}
+				else{
+					local decod = strpos("`decoded_vars_original'", "`var_name''")
+					if `decod' !=0{
+						tempvar deco_temp
+						tempvar group_temp
+						tempvar perc_temp
+						tempvar `n_miss'
+						qui egen `deco_temp' = group(`var')
+						bysort `deco_temp': gen `group_temp' = _N
+						qui egen `n_miss' = total(!missing(`var'))
+						qui gen `perc_temp' = `group_temp'/`n_miss'
+						qui sum `perc_temp'
+						if r(min) >= .05 {
+						local rem_vars "`rem_vars' `var'"
+						}
+					}
+					else{
+						cap confirm string var `var'
+						if _rc!=0{
+							tempvar dup
+							sort `var'
+							quietly by `var': gen `dup' = cond(_N==1,0,_n)
+							quietly: sum `dup'
+							if `r(mean)' >0 {
+								local rem_vars "`rem_vars' `var'"
+							}
+							else{
+								if strpos(string(`var'),"."){
+								local rem_vars "`rem_vars' `var'"
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	    local flagged_vars : list flagged_vars - rem_vars	
+***************************************************************************************
+		local search_list : list all_vars - flagged_vars
 		*local flagged_vars "`strings_to_output'"
 		foreach var of local search_list {
 			local lab: variable label `var'
@@ -407,10 +489,44 @@ program pii_scan
 				}	
 			}	
 		}
-		
-		
+		*** If a binary variable does not have a search term in it and it has at least one value with >=2 responses then it is removed from the search
+		local binary_vars : list all_vars - flagged_vars
+		foreach var of local binary_vars{
+			tempvar nonmiss
+			qui egen `nonmiss' = total(!missing(`var'))
+			quietly: duplicates report `var'
+			if `r(unique_value)' <=2 & `nonmiss' != `r(unique_value)'{
+				local remove_vars "`remove_vars' `var'"
+			}
+		}
+		*** If a previously encoded variable does not have a search term in it and it has <=10 unique values then it is removed from the search
+		local decoded_vars_new: list decoded_vars_original - flagged_vars
+		foreach var of local decoded_vars_new{
+			tempvar dec_temp
+			qui egen `dec_temp' = group(`var')
+			qui sum `dec_temp'
+			if `dec_temp' <= 10{
+				local remove_vars "`remove_vars' `var'"
+			}
+		}
+		local vars_cat: list all_vars - flagged_vars
+		foreach var of local vars_cat{
+				tempvar temp
+				tempvar grp_temp
+				tempvar perc_temp
+				tempvar un_miss
+				qui egen `temp' = group(`var')
+				bysort `temp': gen `grp_temp' = _N
+				qui egen `un_miss' = total(!missing(`var'))
+				qui gen `perc_temp' = `grp_temp'/`un_miss'
+				qui sum `perc_temp'
+				if r(min) >= .05{
+				local remove_vars "`remove_vars' `var'"
+				}
+		}
+		local string_vars_new: list string_vars - remove_vars
 		*** Search through the STRING variables that havent been flagged by the name/label search to find variables with lengths greater than 3:
-		local string_vars_to_search : list string_vars - flagged_vars
+		local string_vars_to_search : list string_vars_new - flagged_vars
 		foreach var of local string_vars_to_search {
 			tempvar temp1
 			cap local `var'r
@@ -512,25 +628,39 @@ replace file = subinstr(file,"$directory_to_scan/", "",.)
 **generating marker for if the variable is found in multiple datasets
 sort var varlabel
 quietly by var varlabel:  gen Multiple_datasets = cond(_N==1,0,_n)
+quietly: sum Multiple_datasets
+if `r(max)' > 0{
+gen max = `r(max)'
 tempfile master 
 save "`master'", replace
-**adding all of the files the variable is found in to the "file" field
+**adding all of the files the variable is found into the "file" field
 keep if Multiple_datasets>=1
-bysort var varlabel: sum Multiple_datasets
+sort var varlabel
+egen group = group(var varlabel)
+quietly: sum max
 local count = r(max)
+if `r(max)'>5{
+	forvalues x=1/5{
+	replace file = file + ";" + file[_n+`x'] if group == group[_n+`x']
+}
+}
+else{
 forvalues x=1/`count'{
-	replace file = file + ";" + file[_n+`x']
+	replace file = file + ";" + file[_n+`x'] if group == group[_n+`x']
+}
 }
 *dropping the duplicate
 drop if Multiple_datasets>1
 merge 1:m var varlabel using "`master'"
+drop _merge group max
+}
 duplicates drop
 **Turning the dummy variable into "yes/no"
 tostring Multiple_datasets, replace
 replace Multiple_datasets = "Yes" if Multiple_datasets == "1"
 replace Multiple_datasets = "No" if Multiple_datasets == "0"
 **Dropping irrelevant variables
-drop _merge v13
+drop v13
 **Labeling the reason a variable was flagged if its variable name was too long previously 
 replace firstreasonflagged = "Variable name too long: search string found" if firstreasonflagged == ""
 **Re-exporting the report
@@ -551,3 +681,4 @@ export delimited "pii_stata_output.csv", replace
 	display "------------------------------------------------------------"
 end
 pii_scan ${directory_to_scan}
+
