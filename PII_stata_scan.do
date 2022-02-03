@@ -14,9 +14,9 @@ clear all
 set more off 
 set maxvar 32767
 
-cd "/Users/johnccavanagh/Documents/Data pub/PII Scans" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.csv
+cd "" // CHANGE PATH TO WHERE YOU WANT TO SAVE pii_stata_output.csv
 
-global directory_to_scan "/Users/johnccavanagh/Documents/Data pub/De_barros_pub_data/Data" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN (change options at botton of do-file)
+global directory_to_scan "" // SET THIS DIRECTORY TO THE ONE YOU WANT TO SCAN (change options at botton of do-file)
 
 
 ***Command "filelist" required:
