@@ -7,8 +7,8 @@ This file will scan all .dta files within a directory and all of its subdirector
 
 Potential PII includes the following: 
 - Variables with names or labels containing any of the strings in the search strings list (see below)
-- String variables with lengths greater than 3 (or the user-defined value)
-- Encoded variables (i.e. those with value labels or those created with the "encode" command) where the value labels have lengths greater than 3
+- String variables with lengths greater than 3 (or the user-defined value)(excluding binary variables w/ >2 non-missing responses)
+- Encoded variables (i.e. those with value labels or those created with the "encode" command) where the value labels have lengths greater than 3 (exlcuding those w/ <= 10 categories)
 
 Note the .ado file can be used in place of the .do file if the user prefers. 
 
